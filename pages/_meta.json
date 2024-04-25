@@ -1,5 +1,7 @@
 {
   "index": "Introduction",
+  "rate-limiter": "Rate Limiter",
+  "filter": "Filter",
   "contact": {
     "title": "Contact ↗",
     "type": "page",
