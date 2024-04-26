@@ -30,3 +30,26 @@ python
 
 
 
+지마켓 기술 블로그
+
+- [Redis Lua Script 를 이용해서 API Rate Limiter 개발](https://dev.gmarket.com/69)
+
+
+
+[Quick Guide to the Guava RateLimiter](https://www.baeldung.com/guava-rate-limiter)
+
+<br/>
+
+
+
+[Request Rate Limiter 를 만들어보자 1편](https://dgle.dev/RateLimiter1/)
+
+[Request Rate Limiter 를 만들어보자 2편](https://dgle.dev/RateLimiter2/)
+
+[Token Bucket Algorithm](https://dev.to/satrobit/rate-limiting-using-the-token-bucket-algorithm-3cjh)
+
+<br/>
+
+
+
+[Spring Cloud Gateway RateLimiter 적용](https://woooongs.tistory.com/56)
