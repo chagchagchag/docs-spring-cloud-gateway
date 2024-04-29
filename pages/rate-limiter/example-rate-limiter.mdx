@@ -16,6 +16,11 @@ Spring Cloud Gateway 는 Router 기능, Rate Limit 을 모두 제공한다는 �
 
 - [Rate limiting using the Token Bucket algorithm](https://dev.to/satrobit/rate-limiting-using-the-token-bucket-algorithm-3cjh)
 - [Bucket4j - Token bucket 알고리즘을 이용한 Rate limit 라이브러리를 알아보자!!](https://baeji77.github.io/dev/java/Java-rate-limit-bukcet4j/)
+  - 만약 Rate Limit 을 더 효율적으로 하고 싶을 경우 참고해서 튜닝이 이뤄진 Rate Limit 서비스를 만들 수 있을 것 같아서 추가해둔 자료입니다.
+
+<br/>
+
+
 
 Rate Limiter 를 분산환경에서 적용시 일반적으로는 Redis 와 같은 data store 를 이용하게 됩니다. 이 경우 고민해야 할 점으로는 Race Condition 이 발생할 수 있다는 점 역시 어느 정도는 고민에 넣어두어야 할 것 같습니다. 따라서 이 경우 TTL 을 따로 지정해줘서 특정 키값의 만료를 지정한다는가 하는 설정을 따로 해두는 것을 권장합니다.<br/>
 
@@ -183,8 +188,6 @@ spring:
 
 
 
-
-
 ### UserIdKeyResolver
 
 사용자가 Request Header 에 전달한 `USER-ID` 라고 하는 헤더 값을 추출하기 위해 ServerWebExchange 내의 request 내의 Header 내에서 `USER-ID` 에 대한 값을 추출합니다.<br/>
@@ -273,7 +276,7 @@ OK
 
 
 
-## 테스트
+## e2e 테스트
 
 먼저 테스트를 위해 application.yml 내의 설정을 아래와 같이 바꿔줍니다. 그리고 Gateway Application 을 재기동해줍니다.
 
