@@ -1,1 +1,330 @@
 ## RedisRateLimiter 의 내부 동작
+
+
+
+## RequestRateLimiterGatewayFilterFactory
+
+> 참고 
+>
+> - [RequestRateLimiterGatewayFilterFactory](https://github.com/spring-cloud/spring-cloud-gateway/blob/af09c72a9a5dbc2240fd5d3de8293a9b7b80750d/spring-cloud-gateway-server/src/main/java/org/springframework/cloud/gateway/filter/ratelimit/RedisRateLimiter.java)
+> - [KeyResolver](https://github.com/spring-cloud/spring-cloud-gateway/blob/main/spring-cloud-gateway-server/src/main/java/org/springframework/cloud/gateway/filter/ratelimit/KeyResolver.java)
+> - [HeaderKeyResolver](https://github.com/spring-attic/spring-cloud-gateway-rate-limiter/blob/main/rate-limiter-core/src/main/java/org/springframework/cloud/gateway/ratelimiter/HeaderKeyResolver.java)
+
+<br/>
+
+
+
+### 생성자
+
+RequestRateLimiterGatewayFilterFactory 는 GatewayFilter 객체를 생성하는 역할을 합니다. RequestRateLimiterGatewayFilterFactory 의 생성자 코드는 아래와 같습니다.
+
+```java
+// ...
+
+@ConfigurationProperties("spring.cloud.gateway.filter.request-rate-limiter")
+public class RequestRateLimiterGatewayFilterFactory
+		extends AbstractGatewayFilterFactory<RequestRateLimiterGatewayFilterFactory.Config> {
+    // ...
+    private final RateLimiter defaultRateLimiter;
+	private final KeyResolver defaultKeyResolver;
+    
+    public RequestRateLimiterGatewayFilterFactory(RateLimiter defaultRateLimiter, KeyResolver defaultKeyResolver) {
+		super(Config.class);
+		this.defaultRateLimiter = defaultRateLimiter;
+		this.defaultKeyResolver = defaultKeyResolver;
+	}
+}
+```
+
+
+
+defaultRateLimiter, defaultKeyResolver 는 사용자가 별도로 defaultRateLimiter, defaultKeyResolver 를 주입하지 않으면 Spring Cloud Gateway 내부적으로 의존성 주입을 합니다.<br/>
+
+만약 RequestRateLimitGatewayFilterFactory 의 생성자를 이용해서 @Bean 설정을 직접 한다면, 위의 생성자를 통해서 객체를 생성해서 @Bean 으로 등록하며 defaultRateLimiter, defaultKeyResolver 에 해당하는 인자값에 실제 객체를 주입해주면 됩니다.<br/>
+
+<br/>
+
+
+
+### apply(Config)
+
+이번에는 apply(Config) 메서드를 살펴봅니다.<br/>
+
+뭔가 굉장히 어려운 내용인 것 같지만 그렇게 대단한 코드는 없습니다.
+
+```java
+@ConfigurationProperties("spring.cloud.gateway.filter.request-rate-limiter")
+public class RequestRateLimiterGatewayFilterFactory
+		extends AbstractGatewayFilterFactory<RequestRateLimiterGatewayFilterFactory.Config> {
+    // ...
+    
+    @SuppressWarnings("unchecked")
+	@Override
+	public GatewayFilter apply(Config config) {
+		KeyResolver resolver = getOrDefault(config.keyResolver, defaultKeyResolver);
+		RateLimiter<Object> limiter = getOrDefault(config.rateLimiter, defaultRateLimiter);
+		boolean denyEmpty = getOrDefault(config.denyEmptyKey, this.denyEmptyKey);
+		HttpStatusHolder emptyKeyStatus = HttpStatusHolder
+				.parse(getOrDefault(config.emptyKeyStatus, this.emptyKeyStatusCode));
+
+        // 1)
+		return (exchange, chain) -> resolver.resolve(exchange).defaultIfEmpty(EMPTY_KEY).flatMap(key -> {
+			if (EMPTY_KEY.equals(key)) {
+				if (denyEmpty) {
+					setResponseStatus(exchange, emptyKeyStatus);
+					return exchange.getResponse().setComplete();
+				}
+				return chain.filter(exchange);
+			}
+			String routeId = config.getRouteId();
+            // 2) 
+			if (routeId == null) {
+				Route route = exchange.getAttribute(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR);
+				routeId = route.getId();
+			}
+            // 3)
+			return limiter.isAllowed(routeId, key).flatMap(response -> {
+
+                // 3-1)
+				for (Map.Entry<String, String> header : response.getHeaders().entrySet()) {
+					exchange.getResponse().getHeaders().add(header.getKey(), header.getValue());
+				}
+                // 3-2)
+				if (response.isAllowed()) {
+					return chain.filter(exchange);
+				}
+                // 3-3)
+				setResponseStatus(exchange, config.getStatusCode());
+				return exchange.getResponse().setComplete();
+			});
+		});
+	}
+    
+    private <T> T getOrDefault(T configValue, T defaultValue) {
+		return (configValue != null) ? configValue : defaultValue;
+	}
+    
+    // ...
+    
+}
+```
+
+참고
+
+- [KeyResolver](https://github.com/spring-cloud/spring-cloud-gateway/blob/main/spring-cloud-gateway-server/src/main/java/org/springframework/cloud/gateway/filter/ratelimit/KeyResolver.java)
+- [ServerWebExchangeUtils - `GATEWAY_ROUTE_ATTR`](https://github.com/spring-cloud/spring-cloud-gateway/blob/main/spring-cloud-gateway-server/src/main/java/org/springframework/cloud/gateway/support/ServerWebExchangeUtils.java#L191)
+
+<br/>
+
+
+
+1\)
+
+- Exchange 를 KeyResolver 로 resolve() 한 결과가 null 이면 `EMPTY_KEY` 를 return 하고, 그 외의 경우는 flatMap(...) 을 통해 다음 처리로 넘어갑니다.
+
+
+
+2\) routeId 가 null 일 경우에 대한 설정입니다.
+
+- ServerWebExchangeUtils 에 정의된 키에 대해 Spring Webflux 의 ServerWebExchange 에 기본설정된 Gateway Router 에 대한 어트리뷰트 값(Value)을 얻어냅니다. 그리고 이 값은 Route 객체인데 이 기본 객체에 대한 routeId 를 얻어냅니다.
+
+
+
+3\) RateLimiter::isAllowed(routerId, key) 를 통해 얻어낸 Mono\<Response\> 를 flatMap 처리합니다. RateLimiter::isAllowed(routerId, key) 메서드는 뒤에서 정리합니다.
+
+- 3-1\) RateLimiter::isAllowed(routerId, key) 에서 만들어낸 Response 객체 내의 header 의 Key, Value 의 쌍 들을 모두 복사해서 Exchange 내의 header 에 복제합니다.
+- 3-2\) RateLimiter::isAllowed(routerId, key) 에서 만들어낸 Response 객체가 isAllowed 된 객체라면 chain.filter(exchange) 를 통해 다음 Filter 처리를 하도록 DispatcherHandler 에게 전달합니다.
+- 3-3\) RateLimiter::isAllowed(routerId, key) 에서 만들어낸 Response 객체가 isAllowed가 아니라면 별도로 responseStatus 를 세팅하고, exchange 의 response 의 상태를 complete 로 변경합니다.
+
+<br/>
+
+
+
+## RateLimiter
+
+- [RateLimiter](https://github.com/spring-cloud/spring-cloud-gateway/blob/main/spring-cloud-gateway-server/src/main/java/org/springframework/cloud/gateway/filter/ratelimit/RateLimiter.java)
+
+RateLimiter 는 interface 입니다. 이 interface 를 구현해서 필요에 맞게 다양한 구현체를 적용가능합니다. Spring Cloud Gateway 는 Redis 를 사용하는데, Spring Cloud Gateway 는 RateLimiter 에 대한 구현체로 RedisRateLimiter 를 채택하고 있습니다.<br/>
+
+AbstractRateLimiter 에서는 RateLimiter 를 구현하는 데에 있어서 필요한 필수적인 로직들을 구현하고 있는 abstract 클래스입니다.<br/>
+
+RateLimiter interface 의 내용은 아래와 같습니다.
+
+```java
+package org.springframework.cloud.gateway.filter.ratelimit;
+
+public interface RateLimiter<C> extends StatefulConfigurable<C> {
+
+	Mono<Response> isAllowed(String routeId, String id);
+
+	class Response {
+
+		private final boolean allowed;
+
+		private final long tokensRemaining;
+
+		private final Map<String, String> headers;
+
+		public Response(boolean allowed, Map<String, String> headers) {
+			this.allowed = allowed;
+			this.tokensRemaining = -1;
+			Assert.notNull(headers, "headers may not be null");
+			this.headers = headers;
+		}
+
+		public boolean isAllowed() {
+			return allowed;
+		}
+
+		public Map<String, String> getHeaders() {
+			return Collections.unmodifiableMap(headers);
+		}
+
+		@Override
+		public String toString() {
+			final StringBuffer sb = new StringBuffer("Response{");
+			sb.append("allowed=").append(allowed);
+			sb.append(", headers=").append(headers);
+			sb.append(", tokensRemaining=").append(tokensRemaining);
+			sb.append('}');
+			return sb.toString();
+		}
+
+	}
+
+}
+```
+
+Response 라고 하는 Response 데이터를 담는용도의 클래스가 정의되어 있으며, isAllowed(routeId, id) 를 메서드로 제공하고 있습니다.
+
+<br/>
+
+
+
+## RedisRateLimiter
+
+- [AbstractRateLimiter](https://github.com/spring-cloud/spring-cloud-gateway/blob/main/spring-cloud-gateway-server/src/main/java/org/springframework/cloud/gateway/filter/ratelimit/AbstractRateLimiter.java) : AbstractRateLimiter 의 내부 구현에 대해서는 생략합니다.
+- [RedisRateLimiter](https://github.com/spring-cloud/spring-cloud-gateway/blob/main/spring-cloud-gateway-server/src/main/java/org/springframework/cloud/gateway/filter/ratelimit/RedisRateLimiter.java)
+
+<br/>
+
+
+
+RedisRateLimiter 의 내용 중 이번 문서에서는 isAllowed(), lua 스크립트 를 알아볼 예정입니다.
+
+- isAllowed() 메서드
+- lua 스크립트
+
+<br/>
+
+
+
+### RedisRateLimiter::isAllowed() 메서드
+
+[RedisRateLimiter::isAllowed() 메서드](https://github.com/spring-cloud/spring-cloud-gateway/blob/af09c72a9a5dbc2240fd5d3de8293a9b7b80750d/spring-cloud-gateway-server/src/main/java/org/springframework/cloud/gateway/filter/ratelimit/RedisRateLimiter.java#L233) 는 아래와 같이 정의되어 있습니다. 꽤 복잡해보이지만 크게 복잡한 내용은 없습니다.  
+
+```java
+package org.springframework.cloud.gateway.filter.ratelimit;
+// ...
+
+@ConfigurationProperties("spring.cloud.gateway.redis-rate-limiter")
+public class RedisRateLimiter extends AbstractRateLimiter<RedisRateLimiter.Config> implements ApplicationContextAware {
+    
+    // ...
+    private RedisScript<List<Long>> script;
+    
+    // ...
+    public RedisRateLimiter(ReactiveStringRedisTemplate redisTemplate, RedisScript<List<Long>> script,
+			ConfigurationService configurationService) {
+		super(Config.class, CONFIGURATION_PROPERTY_NAME, configurationService);
+		this.redisTemplate = redisTemplate;
+		this.script = script;
+		this.initialized.compareAndSet(false, true);
+	}
+    
+    // ...
+    
+    @Override
+	@SuppressWarnings("unchecked")
+	public Mono<Response> isAllowed(String routeId, String id) {
+		if (!this.initialized.get()) {
+			throw new IllegalStateException("RedisRateLimiter is not initialized");
+		}
+
+		Config routeConfig = loadConfiguration(routeId);
+
+        // (0)
+		// How many requests per second do you want a user to be allowed to do?
+		int replenishRate = routeConfig.getReplenishRate();
+
+		// How much bursting do you want to allow?
+		int burstCapacity = routeConfig.getBurstCapacity();
+
+		// How many tokens are requested per request?
+		int requestedTokens = routeConfig.getRequestedTokens();
+
+		try {
+			List<String> keys = getKeys(id);
+
+            // (1)
+			// The arguments to the LUA script. time() returns unixtime in seconds.
+			List<String> scriptArgs = Arrays.asList(replenishRate + "", burstCapacity + "",
+					Instant.now().getEpochSecond() + "", requestedTokens + "");
+            
+            // (2)
+			// allowed, tokens_left = redis.eval(SCRIPT, keys, args)
+			Flux<List<Long>> flux = this.redisTemplate.execute(this.script, keys, scriptArgs);
+			// .log("redisratelimiter", Level.FINER);
+			return flux.onErrorResume(throwable -> {
+				if (log.isDebugEnabled()) {
+					log.debug("Error calling rate limiter lua", throwable);
+				}
+				return Flux.just(Arrays.asList(1L, -1L));
+			}).reduce(new ArrayList<Long>(), (longs, l) -> {
+				longs.addAll(l);
+				return longs;
+			}).map(results -> {
+				boolean allowed = results.get(0) == 1L;
+				Long tokensLeft = results.get(1);
+
+				Response response = new Response(allowed, getHeaders(routeConfig, tokensLeft));
+
+				if (log.isDebugEnabled()) {
+					log.debug("response: " + response);
+				}
+				return response;
+			});
+		}
+		catch (Exception e) {
+			/*
+			 * We don't want a hard dependency on Redis to allow traffic. Make sure to set
+			 * an alert so you know if this is happening too much. Stripe's observed
+			 * failure rate is 0.01%.
+			 */
+			log.error("Error determining if user allowed from redis", e);
+		}
+		return Mono.just(new Response(true, getHeaders(routeConfig, -1L)));
+	}
+}
+```
+
+`(0)`
+
+- replenishRate, burstCapacity, requestedTokens 와 같은 값들을 routeConfig 에서 가져옵니다. 
+
+`(1)`
+
+- 이 값들은 모두 개발자가 선언한 application.yml 파일에 정의되어 있는 내용입니다. 그리고 아래에 주석으로 표시한 `(1)` 의 영역에서 모두 문자열의 List로 만듭니다.
+
+`(2)`
+
+- `(2)` 에서는 redisTemplate 을 이용해서 lua script 를 실행시키는데, 이때 Argument 는 `(1)` 에서 초기화한 List\<String\> 입니다.
+- this.script 는 RedisRateLimiter 내에 정의된 `RedisScript<List<Long>>` 타입의 lua script 객체입니다.
+
+<br/>
+
+
+
+### lua 스크립트
+
+휴... 잠깐만 쉬었다 정리하겠습니다.
