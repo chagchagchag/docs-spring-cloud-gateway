@@ -3,5 +3,6 @@
     "redis-docker-compose": "Redis docker-compose",
     "example-rate-limiter": "RateLimiter 예제",
     "example-custom-rate-limiter": "Custom Rate Limiter 예제",
-    "inside-redis-rate-limiter": "RedisRateLimiter의 내부 동작"
+    "inside-redis-rate-limiter": "RedisRateLimiter의 내부 동작",
+    "lua-script-overview": "LuaScript Overview"
 }
