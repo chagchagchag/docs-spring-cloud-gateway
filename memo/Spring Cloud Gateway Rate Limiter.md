@@ -53,3 +53,9 @@ python
 
 
 [Spring Cloud Gateway RateLimiter 적용](https://woooongs.tistory.com/56)
+
+<br/>
+
+
+
+[QoS Token Bucket Algorithms](https://white-polarbear.tistory.com/63)
