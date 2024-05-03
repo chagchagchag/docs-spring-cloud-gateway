@@ -2,13 +2,20 @@
 
 
 
+
+
+
+
 ## RequestRateLimiterGatewayFilterFactory
 
 > 참고 
 >
+> - [spring-cloud-gateway-server/src/main/java/org/springframework/cloud/gateway/filter/ratelimit](https://github.com/spring-cloud/spring-cloud-gateway/tree/main/spring-cloud-gateway-server/src/main/java/org/springframework/cloud/gateway/filter/ratelimit)
+>
 > - [RequestRateLimiterGatewayFilterFactory](https://github.com/spring-cloud/spring-cloud-gateway/blob/af09c72a9a5dbc2240fd5d3de8293a9b7b80750d/spring-cloud-gateway-server/src/main/java/org/springframework/cloud/gateway/filter/ratelimit/RedisRateLimiter.java)
+> - [GatewayFilter](https://github.com/spring-cloud/spring-cloud-gateway/blob/main/spring-cloud-gateway-server/src/main/java/org/springframework/cloud/gateway/filter/GatewayFilter.java)
 > - [KeyResolver](https://github.com/spring-cloud/spring-cloud-gateway/blob/main/spring-cloud-gateway-server/src/main/java/org/springframework/cloud/gateway/filter/ratelimit/KeyResolver.java)
-> - [HeaderKeyResolver](https://github.com/spring-attic/spring-cloud-gateway-rate-limiter/blob/main/rate-limiter-core/src/main/java/org/springframework/cloud/gateway/ratelimiter/HeaderKeyResolver.java)
+> - [GatewayAutoConfiguration](https://github.com/spring-cloud/spring-cloud-gateway/blob/main/spring-cloud-gateway-server/src/main/java/org/springframework/cloud/gateway/config/GatewayAutoConfiguration.java)
 
 <br/>
 
@@ -315,11 +322,11 @@ public class RedisRateLimiter extends AbstractRateLimiter<RedisRateLimiter.Confi
 
 `(0)`
 
-- replenishRate, burstCapacity, requestedTokens 와 같은 값들을 routeConfig 에서 가져옵니다. 
+- replenishRate, burstCapacity, requestedTokens 와 같은 값들을 routeConfig 에서 가져옵니다. burstCapacity, replenishRate, requestedTokens 등과 같은 값들은 모두 개발자가 선언한 application.yml 파일에 정의되어 있는 내용입니다.
 
 `(1)`
 
-- 이 값들은 모두 개발자가 선언한 application.yml 파일에 정의되어 있는 내용입니다. 그리고 아래에 주석으로 표시한 `(1)` 의 영역에서 모두 문자열의 List로 만듭니다.
+-  `(0)` 에서 가져온 burstCapacity, replenishRate, requestedTokens 와 같은 인자값들을 문자열로 변형해서 List로 만듭니다.
 
 `(2)`
 
@@ -332,4 +339,111 @@ public class RedisRateLimiter extends AbstractRateLimiter<RedisRateLimiter.Confi
 
 ### lua 스크립트
 
-휴... 잠깐만 쉬었다 정리하겠습니다.
+- Lua 스크립트 - [위키](https://ko.wikipedia.org/wiki/%EB%A3%A8%EC%95%84_(%ED%94%84%EB%A1%9C%EA%B7%B8%EB%9E%98%EB%B0%8D_%EC%96%B8%EC%96%B4)) , [나무위키](https://namu.wiki/w/Lua)
+- Redis - [위키](https://ko.wikipedia.org/wiki/%EB%A0%88%EB%94%94%EC%8A%A4)
+- lua download - [https://www.lua.org/download.html](https://www.lua.org/download.html)
+- lua binary : [https://luabinaries.sourceforge.net/download.html](https://luabinaries.sourceforge.net/download.html)
+
+> Mac OS 에서는 brew, Linux 에서는 apt-get 등과 같은 패키지 매니저를 통해서 설치 가능합니다. 제 경우에는 개발 PC를 깔끔하게 유지하는것을 선호하기에 온라인 에디터를 사용했고 온라인 에디터에 대해서는 https://replit.com/languages/lua 을 참고해주시기 바랍니다.<br/>
+
+Lua 스크립트는 레디스 내의 인터프리터는 Lua 스크립트를 읽을수 있으며 실행 가능합니다. Lua 스크립트를 사용하면, 레디스 머신 내에서 레디스 실행엔진이 Lua 스크립트를 인터프리터로 해석해서 스크립트를 실행합니다.<br/>
+
+클라이언트인 각각의 개별 서비스에서 레디스의 List,Set 의 데이터를 복사한 후 열어서 접근할 때 레디스 입장에서는 동일한 값이 복제되었을 때에 대해 데이터가 모호해질 수 있습니다.<br/>
+
+이런 경우에는 Redis 내에 구성한 List, Set 등과 같은 자료구조에 접근하는 주체가 Redis 머신이 되도록 바꿔주면, 데이터의 불일치 현상을 방지할 수 있습니다.<br/>
+
+Redis 에 Script 를 통해 접근하면 Redis 서버 내에서의 Atomic 연산을 보장해줍니다. 따라서 Rate Limiter, Coupon 발급기 같은 작업 대기열 기반 트래픽 처리를 할 때 유용합니다.<br/>
+
+Lua 라는 언어는 브라질에서 1993년도애 개발된 프로그래밍 언어인데, C/C++ 프로그램 내부에 포함시키기 쉬우면서 깔끔하고 쉬운 문법의 스크립트 언어입니다. Redis 는 C/C++ 기반으로 작성된 데이터 플랫폼입니다. 그리고 Lua 스크립트를 실행할 수 있도록 Lua 스크립트와 관련된 기능을 지원하고 있습니다.<br/>
+
+Lua 언어의 설치는 https://www.lua.org/download.html 에서 다운로드 받아서 설치 가능합니다.<br/>
+
+<br/>
+
+
+
+### request_rate_limiter.lua
+
+만약 우리가 RedisLimiter 를 의존성 주입하지 않는다면 Spring Cloud Gateway 에서 기본으로 제공해주는 [request_rate_limiter.lua](https://github.com/spring-cloud/spring-cloud-gateway/blob/af09c72a9a/spring-cloud-gateway-server/src/main/resources/META-INF/scripts/request_rate_limiter.lua)가 선택되어 사용하게 됩니다.<br/>
+
+> request_rate_limiter.lua 의 경로는 `spring-cloud-gateway-server/src/main/resources/META-INF/scripts/request_rate_limiter.lua` 입니다.
+
+```lua
+local tokens_key = KEYS[1]
+local timestamp_key = KEYS[2]
+--redis.log(redis.LOG_WARNING, "tokens_key " .. tokens_key)
+
+local rate = tonumber(ARGV[1])
+local capacity = tonumber(ARGV[2])
+local now = tonumber(ARGV[3])
+local requested = tonumber(ARGV[4])
+
+local fill_time = capacity/rate
+local ttl = math.floor(fill_time*2)
+
+--redis.log(redis.LOG_WARNING, "rate " .. ARGV[1])
+--redis.log(redis.LOG_WARNING, "capacity " .. ARGV[2])
+--redis.log(redis.LOG_WARNING, "now " .. ARGV[3])
+--redis.log(redis.LOG_WARNING, "requested " .. ARGV[4])
+--redis.log(redis.LOG_WARNING, "filltime " .. fill_time)
+--redis.log(redis.LOG_WARNING, "ttl " .. ttl)
+
+local last_tokens = tonumber(redis.call("get", tokens_key))
+if last_tokens == nil then
+  last_tokens = capacity
+end
+--redis.log(redis.LOG_WARNING, "last_tokens " .. last_tokens)
+
+local last_refreshed = tonumber(redis.call("get", timestamp_key))
+if last_refreshed == nil then
+  last_refreshed = 0
+end
+--redis.log(redis.LOG_WARNING, "last_refreshed " .. last_refreshed)
+
+local delta = math.max(0, now-last_refreshed)
+local filled_tokens = math.min(capacity, last_tokens+(delta*rate))
+local allowed = filled_tokens >= requested
+local new_tokens = filled_tokens
+local allowed_num = 0
+if allowed then
+  new_tokens = filled_tokens - requested
+  allowed_num = 1
+end
+
+--redis.log(redis.LOG_WARNING, "delta " .. delta)
+--redis.log(redis.LOG_WARNING, "filled_tokens " .. filled_tokens)
+--redis.log(redis.LOG_WARNING, "allowed_num " .. allowed_num)
+--redis.log(redis.LOG_WARNING, "new_tokens " .. new_tokens)
+
+if ttl > 0 then
+  redis.call("setex", tokens_key, ttl, new_tokens)
+  redis.call("setex", timestamp_key, ttl, now)
+end
+
+-- return { allowed_num, new_tokens, capacity, filled_tokens, requested, new_tokens }
+return { allowed_num, new_tokens }
+```
+
+<br/>
+
+
+
+자바 코드에서는 아래의 인자값을 넘겨줬었습니다.
+
+- replenishRate
+- burstCapacity
+- Instant.now().getEpochSecond() : 초 단위로 구분된 Epoch Time
+- requestedTokens
+
+
+
+위의 스크립트에서는 위의 인자값들을 `ARGV` 라는 배열로 받습니다.<br/>
+
+
+
+위의 코드는 Token Bucket Algorithm 이 구현된 것인데, Token Bucket Algorithm 에 대해서는 문서가 길어지게 되어서 별도의 문서에서 따로 정리하기로 결정했습니다.<br/>
+
+<br/>
+
+
+
