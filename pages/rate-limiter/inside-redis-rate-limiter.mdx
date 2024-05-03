@@ -143,6 +143,11 @@ public class RequestRateLimiterGatewayFilterFactory
 ## RateLimiter
 
 - [RateLimiter](https://github.com/spring-cloud/spring-cloud-gateway/blob/main/spring-cloud-gateway-server/src/main/java/org/springframework/cloud/gateway/filter/ratelimit/RateLimiter.java)
+- [AbstractRateLimiter](https://github.com/spring-cloud/spring-cloud-gateway/blob/main/spring-cloud-gateway-server/src/main/java/org/springframework/cloud/gateway/filter/ratelimit/AbstractRateLimiter.java) : AbstractRateLimiter 의 내부 구현에 대해서는 설명을 생략합니다.
+
+<br/>
+
+
 
 RateLimiter 는 interface 입니다. 이 interface 를 구현해서 필요에 맞게 다양한 구현체를 적용가능합니다. Spring Cloud Gateway 는 Redis 를 사용하는데, Spring Cloud Gateway 는 RateLimiter 에 대한 구현체로 RedisRateLimiter 를 채택하고 있습니다.<br/>
 
