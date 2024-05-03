@@ -4,5 +4,5 @@
     "example-rate-limiter": "RateLimiter 예제",
     "example-custom-rate-limiter": "Custom Rate Limiter 예제",
     "inside-redis-rate-limiter": "RedisRateLimiter의 내부 동작",
-    "token-bucket-algorithm-in-lua": "Token Bucket Algorithm (Lua)"
+    "token-bucket-algorithm": "Token Bucket Algorithm (Lua)"
 }
