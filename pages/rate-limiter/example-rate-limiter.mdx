@@ -179,9 +179,9 @@ spring:
 
 <br/>
 
-- replenishRate : 초당 버킷 회복 량을 의미합니다. 위에서는 100 을 지정했는데 1초 내에 어떤 요청이 90회 발생하면, 100을 채워주므로 1초 되에 다시 버킷이 100 으로 회복됩니다.
+- replenishRate : 초당 버킷 회복 량을 의미합니다. 위에서는 20 을 지정했는데 1초 내에 어떤 요청이 7회 발생하면 3x7 = 21 개의 토큰이 소모되며, 1초 뒤에 회복될때는 replenishRate 를 통해 다시 버킷이 30 으로 회복됩니다. (3은 requestedTokens 를 의미합니다.)
 - burstCapacitiy : 버킷에 담을 수 있는 최대 양을 의미합니다. 
-- requestedTokens : 요청 시에 소모할 토큰의 갯수를 의미합니다. 3으로 설정했으므로 요청 하나당 3 의 토큰이 소모됩니다.
+- requestedTokens : 요청 발생 시마다 소모할 토큰의 갯수를 의미합니다. 3으로 설정했으므로 요청 하나당 3 의 토큰이 소모됩니다.
 - key-resolver : `"#{@userIdKeyResolver}"` 로 지정해줬는데, Java Config 로 미리 정의해둔 "userIdKeyResolver" 라는 이름의 Bean 을 의미하는 SPEL 표현식입니다.
 
 <br/>
