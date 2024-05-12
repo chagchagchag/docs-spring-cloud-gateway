@@ -16,6 +16,7 @@ local ttl = math.floor(fill_time*2)
 -- arg3 : Instant.now().getEpochScond() : 초단위로 구분된 Epoch Time
 -- arg4 : requestedTokens ==> 요청 시에 소모할 토큰의 갯수
 -- fill_time = capacity (버킷에 담을 수 있는 최대 양) / rate (초당 버킷 회복량)
+--    ==> "버킷을 모두 채우는 데에 몇 초를 쓰는지"
 -- ttl : fill_time * 2
 
 --redis.log(redis.LOG_WARNING, "rate " .. ARGV[1])

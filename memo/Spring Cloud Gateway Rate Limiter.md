@@ -59,3 +59,16 @@ python
 
 
 [QoS Token Bucket Algorithms](https://white-polarbear.tistory.com/63)
+
+
+
+
+
+- [Spring Boot + Kotlin : Redis Lua Script 적용](https://junuuu.tistory.com/890)
+- [Redis Lua Script 를 이용해서 API Rate Limiter 개발](https://dev.gmarket.com/69)
+- [Atomic 처리와 cache stampede 대책을 위해 Redis Lua script 를 활용한 이야기](https://engineering.linecorp.com/ko/blog/atomic-cache-stampede-redis-lua-script)
+
+
+
+
+
