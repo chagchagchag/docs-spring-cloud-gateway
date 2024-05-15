@@ -1,7 +1,8 @@
 {
   "index": "Introduction",
   "rate-limiter": "Rate Limiter",
-  "filter": "Filter",
+  "gateway-router": "Gateway Router",
+  "gateway-filter": "Gateway Filter",
   "contact": {
     "title": "Contact ↗",
     "type": "page",
