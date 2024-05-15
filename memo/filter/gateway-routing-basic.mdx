@@ -8,7 +8,7 @@
 
 이번 예제에서는 Servlet 기반의 Gateway 대신 Reactive Gateway 를 선택했습니다. Servlet 기반의 Gateway 예제는 추후 시간이 된다면 추가하도록 하겠습니다. 
 
-![](./img/first-step-setting/1-project-create.png)
+![](./img/gateway-routing-basic/1-project-create.png)
 
 <br/>
 
@@ -104,7 +104,7 @@ tasks.withType<Test> {
 
 패키지를 build.gradle.kts에서 명시한 group 을 포함한 패키지 명으로 만들고 그 아래에 구성해주시고, GatewayApplication 클래스를 추가합니다. `rewrite_path_router_example` 은 이 문서의 두번째 버전 예제를 작성한 예제의 패키지 명입니다. 이 글을 따라서 작성하시는 분이 계시다면, 원하는 패키지 명을 직접 지정해주세요.
 
-![](./img/first-step-setting/1.1-source-code.png)
+![](./img/gateway-routing-basic/1.1-source-code.png)
 
 <br/>
 
@@ -193,7 +193,7 @@ tasks.withType<Test> {
 
 패키지를 build.gradle.kts에서 명시한 group 을 포함한 패키지 명으로 만들고 그 아래에 구성해주시고, MemberApplication 클래스를 추가합니다. `rewrite_path_router_example` 은 이 문서의 두번째 버전 예제를 작성한 예제의 패키지 명입니다. 이 글을 따라서 작성하시는 분이 계시다면, 원하는 패키지 명을 직접 지정해주세요.
 
-![](./img/first-step-setting/1.2-source-code.png)
+![](./img/gateway-routing-basic/1.2-source-code.png)
 
 <br/>
 
@@ -224,7 +224,7 @@ public class MemberApplication {
 
 Discovery Server 를 통하지 않고 Gateway 와 Gateway Client 가 1:1 로 매핑되는 상황입니다. `member-service` 라는 서비스와 `gateway-service` 가 있는 상황이라고 가정하겠습니다.<br/>
 
-![](./img/first-step-setting/1.0-overview.png)
+![](./img/gateway-routing-basic/1.0-overview.png)
 
 <br/>
 
@@ -332,7 +332,7 @@ server:
 
 gateway-service 의 포트번호인 8080 포트의 /member-service/** 으로 GET 요청을 합니다. 
 
-![](./img/first-step-setting/4-first-example-1-gateway.png)
+![](./img/gateway-routing-basic/4-first-example-1-gateway.png)
 
 <br/>
 
@@ -340,7 +340,7 @@ gateway-service 의 포트번호인 8080 포트의 /member-service/** 으로 GET
 
 #### member-service
 
-![](./img/first-step-setting/4-first-example-2-member.png)
+![](./img/gateway-routing-basic/4-first-example-2-member.png)
 
 <br/>
 
@@ -383,7 +383,7 @@ public class MemberOAuth2Controller {
 
 첫번째 버전은 member-service 측에서 자꾸 gateway-service 의 application.yml 에서 정해둔 `/member-service/**` 경로 패턴을 입력해줘야 하는 불편함과 강제성이 있습니다. <br/>
 
-![](./img/first-step-setting/2.0-overview.png)
+![](./img/gateway-routing-basic/2.0-overview.png)
 
 이번 버전에서는 외부에서 gateway-service 를 거쳐서 member-service 에 request 를 보낼때 `/member-service/**` 으로 요청을 하지만, member-service 내의 API 에 접근할 때 `/member-service/**` 를 접두사를 붙이지 않아도 원하는 `/member-service/**` 로 접근이 가능하도록 하는 방법을 설명합니다.
 
@@ -474,7 +474,7 @@ public class MemberOAuth2Controller {
 
 사용자 또는 Web/IOS/AOS 개발자 입장에서는 API의 URI 가 /member-service/oauth2/hello 라는 것만 알면 됩니다. 별도의 api 서버가 위치한 ip 주소나 도메인네임을 알고 있을 필요가 없습니다.
 
-![](./img/first-step-setting/2-gateway-connect.png)
+![](./img/gateway-routing-basic/2-gateway-connect.png)
 
 <br/>
 
@@ -484,7 +484,7 @@ public class MemberOAuth2Controller {
 
 Gateway 입장에서 member-service 를 찾을 때에는 member-service 의 실제 IP 주소와 port 를 통해 찾습니다.
 
-![](./img/first-step-setting/2-member-connect.png)
+![](./img/gateway-routing-basic/2-member-connect.png)
 
 <br/>
 
